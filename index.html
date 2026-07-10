@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Braille AI Assistive Interface</title>
+
+<style>
+
+body{
+font-family: 'Segoe UI', sans-serif;
+background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+margin:0;
+color:white;
+}
+
+/* HEADER */
+header{
+padding:20px;
+text-align:center;
+font-size:28px;
+font-weight:bold;
+background:rgba(0,0,0,0.4);
+}
+
+/* GRID */
+.container{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:25px;
+padding:40px;
+}
+
+/* CARD */
+.card{
+background:rgba(255,255,255,0.05);
+border-radius:15px;
+padding:25px;
+box-shadow:0 10px 30px rgba(0,0,0,0.4);
+}
+
+/* TEXT */
+.display{
+font-size:22px;
+padding:15px;
+background:#00000055;
+border-radius:10px;
+min-height:60px;
+}
+
+/* BRAILLE */
+.braille{
+display:grid;
+grid-template-columns:repeat(2,50px);
+gap:15px;
+margin-top:20px;
+}
+
+.dot{
+width:45px;
+height:45px;
+border-radius:50%;
+background:#444;
+}
+
+.active{
+background:#00ffcc;
+box-shadow:0 0 15px #00ffcc;
+}
+
+/* INPUT */
+.inputBox{
+margin-top:20px;
+display:flex;
+gap:10px;
+}
+
+input{
+flex:1;
+padding:10px;
+border-radius:8px;
+border:none;
+outline:none;
+}
+
+button{
+padding:10px 15px;
+border:none;
+border-radius:8px;
+background:#00d4ff;
+cursor:pointer;
+}
+
+button:hover{
+background:#00aacc;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+Braille AI Assistive System
+</header>
+
+<div class="container">
+
+<!-- LEFT -->
+<div class="card">
+
+<h2>Braille Input</h2>
+
+<div id="sentence" class="display">
+Waiting for input...
+</div>
+
+<div class="braille">
+
+<div id="d1" class="dot"></div>
+<div id="d4" class="dot"></div>
+
+<div id="d2" class="dot"></div>
+<div id="d5" class="dot"></div>
+
+<div id="d3" class="dot"></div>
+<div id="d6" class="dot"></div>
+
+</div>
+
+<!-- 🔥 MANUAL INPUT -->
+<div class="inputBox">
+<input id="userInput" placeholder="Type manually...">
+<button onclick="sendManual()">Send</button>
+</div>
+
+</div>
+
+<!-- RIGHT -->
+<div class="card">
+
+<h2>AI Response</h2>
+
+<div id="ai" class="display">
+Waiting for AI...
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+let lastSpokenLetter = ""
+let lastSpokenAI = ""
+
+// 🔊 SPEAK
+function speak(text){
+    if(!text) return
+    const speech = new SpeechSynthesisUtterance(text)
+    speech.rate = 1
+    window.speechSynthesis.speak(speech)
+}
+
+// 🔘 UPDATE DOTS
+function updateDots(pattern){
+    const ids = ["d1","d2","d3","d4","d5","d6"]
+
+    for(let i=0;i<6;i++){
+        let dot = document.getElementById(ids[i])
+        if(pattern[i] === "1"){
+            dot.classList.add("active")
+        }else{
+            dot.classList.remove("active")
+        }
+    }
+}
+
+// 🔄 FETCH FROM BACKEND
+async function fetchData(){
+
+    const res = await fetch("http://localhost:5000/data")
+    const data = await res.json()
+
+    document.getElementById("sentence").innerText = data.sentence
+    document.getElementById("ai").innerText = data.ai_response
+
+    updateDots(data.pattern)
+
+    // speak letter
+    if(data.last_letter && data.last_letter !== lastSpokenLetter){
+        speak(data.last_letter)
+        lastSpokenLetter = data.last_letter
+    }
+
+    // speak AI
+    if(data.ai_response && data.ai_response !== lastSpokenAI){
+        speak(data.ai_response)
+        lastSpokenAI = data.ai_response
+    }
+}
+
+// ⌨️ SEND MANUAL INPUT
+async function sendManual(){
+
+    let text = document.getElementById("userInput").value
+
+    if(!text) return
+
+    const res = await fetch("http://localhost:5000/simulate",{
+        method:"POST",
+        headers:{
+            "Content-Type":"application/json"
+        },
+        body:JSON.stringify({sentence:text})
+    })
+
+    const data = await res.json()
+
+    document.getElementById("sentence").innerText = data.sentence
+    document.getElementById("ai").innerText = data.ai_response
+
+    speak(text)
+    speak(data.ai_response)
+
+    document.getElementById("userInput").value=""
+}
+
+// ⌨️ ENTER KEY SUPPORT
+document.getElementById("userInput").addEventListener("keypress", function(e){
+    if(e.key === "Enter"){
+        sendManual()
+    }
+})
+
+setInterval(fetchData,500)
+
+</script>
+
+</body>
+</html>
